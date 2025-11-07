@@ -15,65 +15,66 @@
      */
     function initializePopup(config) {
         
-        // 1. Оновлені стилі для дизайну з картинкою зверху
+        // 1. Оновлені стилі для дизайну з фоновим зображенням
         const styles = `
-            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
+            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
             .popup-overlay {
-                position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6);
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.65);
                 display: flex; justify-content: center; align-items: center; z-index: 2147483647;
                 opacity: 0; visibility: hidden; transition: opacity 0.4s ease;
             }
             .popup-overlay.visible { opacity: 1; visibility: visible; }
             .popup-container {
-                background-color: ${config.formBackgroundColor || '#FFFFFF'};
-                border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
-                width: 90%; max-width: 420px; /* Зробимо трохи вужчим для вертикального дизайну */
-                font-family: 'Poppins', sans-serif; overflow: hidden;
-                transform: scale(0.95); transition: transform 0.4s ease;
+                /* Застосовуємо колір фону та фонове зображення */
+                background-color: ${config.formBackgroundColor || '#F8F5F0'};
+                background-image: ${config.imageUrl ? `url('${config.imageUrl}')` : 'none'};
+                background-size: cover;
+                background-position: center;
+
+                border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+                width: 90%; max-width: 520px;
+                font-family: 'Poppins', sans-serif;
+                position: relative;
+                transform: scale(0.95); transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
             }
             .popup-overlay.visible .popup-container { transform: scale(1); }
-            .popup-image {
-                width: 100%; height: auto; display: ${config.imageUrl ? 'block' : 'none'};
-                border-bottom: 1px solid #eee;
-            }
             .popup-content {
-                padding: 35px; box-sizing: border-box; position: relative;
-                text-align: center;
+                padding: 45px; box-sizing: border-box; text-align: left;
             }
             .close-btn {
-                position: absolute; top: 10px; right: 15px; font-size: 24px;
-                color: #aaa; cursor: pointer; line-height: 1;
+                position: absolute; top: 15px; right: 15px; font-size: 28px;
+                color: #888; cursor: pointer; line-height: 1; font-weight: 300;
             }
             .popup-content h2 {
-                font-size: 26px; font-weight: 600; color: #333;
-                margin: 0 0 8px 0;
+                font-size: 32px; font-weight: 700; color: #1a202c;
+                margin: 0 0 10px 0; line-height: 1.2;
             }
             .popup-content p {
-                font-size: 16px; color: #666; margin: 0 0 25px 0;
+                font-size: 16px; color: #4a5568; margin: 0 0 30px 0;
             }
-            #subscription-form { display: flex; flex-direction: column; }
+            #subscription-form { display: flex; }
             #email-input {
-                width: 100%; padding: 12px 15px; border: 1px solid #ccc;
-                border-radius: 5px; font-size: 16px; margin-bottom: 10px;
+                flex-grow: 1; padding: 14px 18px; border: 1px solid #cbd5e0;
+                border-radius: 6px 0 0 6px; font-size: 16px;
                 box-sizing: border-box;
             }
+            #email-input:focus { outline: none; border-color: #4A5568; }
             #submit-button {
-                width: 100%; padding: 12px 25px; border: none; border-radius: 5px;
+                padding: 14px 28px; border: none; border-radius: 0 6px 6px 0;
                 background-color: ${config.buttonColor || '#4A5568'};
                 color: ${config.buttonTextColor || '#FFFFFF'};
                 font-size: 16px; font-weight: 600; cursor: pointer;
                 transition: background-color 0.2s;
             }
             #submit-button:hover { background-color: ${config.buttonHoverColor || '#2D3748'}; }
-            #thank-you-message { text-align: center; }
+            #thank-you-message { text-align: left; }
         `;
 
-        // 2. Оновлена HTML-структура з <img /> зверху
+        // 2. Оновлена (і спрощена) HTML-структура
         const popupHTML = `
             <div class="popup-container">
-                <img src="${config.imageUrl || ''}" class="popup-image" alt="">
+                <span class="close-btn">&times;</span>
                 <div class="popup-content">
-                    <span class="close-btn">&times;</span>
                     <div id="form-container">
                         <h2>${config.popupTitle}</h2>
                         <p>${config.popupText}</p>
@@ -89,6 +90,8 @@
                 </div>
             </div>
         `;
+
+        // --- Вся подальша логіка залишається без змін ---
 
         // 3. Додаємо стилі та HTML на сторінку
         const styleSheet = document.createElement("style");
@@ -109,7 +112,7 @@
 
         const popupDelay = (parseInt(config.popupDelaySeconds, 10) || 10) * 1000;
         const cookieExpirationDays = parseInt(config.cookieExpirationDays, 10) || 90;
-        const reminderCookieDays = parseInt(config.reminderCookieDays, 10); // Не ставимо значення за замовчуванням
+        const reminderCookieDays = parseInt(config.reminderCookieDays, 10);
         const currentSite = window.location.hostname;
         const cookieName = `subscriptionPopupShown_${currentSite}`;
 
@@ -134,29 +137,24 @@
             return null;
         }
 
-        // 5. КЛЮЧОВА ЗМІНА: Нова логіка закриття та встановлення cookie
+        // 5. Логіка закриття та встановлення cookie (без змін)
         function closePopup(isSubscribed) {
             popup.classList.remove('visible');
-
             if (isSubscribed) {
-                // Користувач підписався -> встановлюємо довгий cookie
                 setCookie(cookieName, 'subscribed', cookieExpirationDays);
             } else {
-                // Користувач просто закрив форму
                 if (reminderCookieDays > 0) {
-                    // Якщо є період нагадування -> встановлюємо короткий cookie
                     setCookie(cookieName, 'reminder', reminderCookieDays);
                 }
-                // Якщо reminderCookieDays = 0, нічого не робимо, cookie не ставиться.
             }
         }
 
-        // Перевіряємо, чи потрібно показувати форму
+        // Перевіряємо, чи потрібно показувати форму (без змін)
         if (!getCookie(cookieName)) {
             setTimeout(() => popup.classList.add('visible'), popupDelay);
         }
         
-        // Обробка успішної відправки форми
+        // Обробка відправки форми (без змін)
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             const email = document.getElementById('email-input').value;
@@ -173,7 +171,7 @@
             .catch(error => console.error('Error submitting form:', error.message));
         });
 
-        // Обробка закриття по кліку на хрестик
+        // Обробка закриття по кліку на хрестик (без змін)
         closeBtn.addEventListener('click', function() {
             closePopup(false); 
         });
