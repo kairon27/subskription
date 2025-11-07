@@ -1,77 +1,95 @@
 (function() {
-    // Вставте сюди URL-адресу вашого веб-додатку Google Apps Script
-    const googleScriptURL = 'https://script.google.com/macros/s/AKfycbwaFx7knHsKATLpNwQVoATYY3Mtq6XCu4mtVgSAP1GXVYhA1AEaqvXr15L5-tAreBLC/exec';
+    // Ця частина скрипта буде завантажена асинхронно
+    // Переконайтесь, що у вікні є об'єкт 'ml' та його черга 'q'
+    if (!window.ml || !window.ml.q) {
+        console.error('MailerLite Universal script not initialized.');
+        return;
+    }
 
-    /**
-     * Головна функція, яка створює та ініціалізує спливаючу форму.
-     * @param {object} config - Об'єкт налаштувань, завантажений з Google Таблиці.
-     */
+    // Отримуємо account ID, який передали в ml('account', 'YOUR_SCRIPT_URL')
+    const scriptUrl = window.ml.q[0][1]; 
+
     function initializePopup(config) {
-        
-        // 1. Створюємо динамічні стилі на основі налаштувань
         const styles = `
+            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap');
             .popup-overlay {
-                position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-                background-color: rgba(0, 0, 0, 0.6); display: flex;
-                justify-content: center; align-items: center; z-index: 1000;
-                opacity: 0; visibility: hidden; transition: opacity 0.3s ease, visibility 0.3s ease;
+                position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6);
+                display: flex; justify-content: center; align-items: center; z-index: 2147483647;
+                opacity: 0; visibility: hidden; transition: opacity 0.4s ease;
             }
-            .popup-overlay.visible {
-                opacity: 1; visibility: visible;
+            .popup-overlay.visible { opacity: 1; visibility: visible; }
+            .popup-container {
+                background-color: ${config.formBackgroundColor || '#FFFFFF'};
+                border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+                width: 90%; max-width: 720px; display: flex;
+                font-family: 'Poppins', sans-serif; overflow: hidden;
+                transform: scale(0.95); transition: transform 0.4s ease;
+            }
+            .popup-overlay.visible .popup-container { transform: scale(1); }
+            .popup-image {
+                width: 40%; background-size: cover; background-position: center;
+                display: ${config.imageUrl ? 'block' : 'none'};
             }
             .popup-content {
-                background-color: #fff; padding: 30px; border-radius: 8px;
-                box-shadow: 0 5px 15px rgba(0,0,0,0.3); width: 90%;
-                max-width: 400px; text-align: center; position: relative;
-                font-family: Arial, sans-serif; transform: scale(0.9);
-                transition: transform 0.3s ease;
+                width: ${config.imageUrl ? '60%' : '100%'};
+                padding: 40px; box-sizing: border-box; position: relative;
+                display: flex; flex-direction: column; justify-content: center;
             }
-            .popup-overlay.visible .popup-content {
-                transform: scale(1);
-            }
-            .popup-content h2 { margin-top: 0; color: #333; }
-            .popup-content p { color: #666; }
             .close-btn {
-                position: absolute; top: 10px; right: 15px; font-size: 28px;
-                font-weight: bold; color: #aaa; cursor: pointer;
+                position: absolute; top: 15px; right: 20px; font-size: 24px;
+                color: #999; cursor: pointer;
             }
-            .close-btn:hover { color: #333; }
-            #subscription-form input[type="email"] {
-                width: 100%; padding: 12px; margin: 15px 0; border: 1px solid #ccc;
-                border-radius: 5px; box-sizing: border-box;
+            .popup-content h2 {
+                font-size: 28px; font-weight: 600; color: #333;
+                margin: 0 0 10px 0; text-align: left;
             }
-            #subscription-form button {
-                background-color: ${config.buttonColor || '#007BFF'};
+            .popup-content p {
+                font-size: 16px; color: #666; margin: 0 0 25px 0; text-align: left;
+            }
+            #subscription-form { display: flex; }
+            #email-input {
+                flex-grow: 1; padding: 12px 15px; border: 1px solid #ccc;
+                border-radius: 5px 0 0 5px; font-size: 16px;
+            }
+            #submit-button {
+                padding: 12px 25px; border: none; border-radius: 0 5px 5px 0;
+                background-color: ${config.buttonColor || '#4A5568'};
                 color: ${config.buttonTextColor || '#FFFFFF'};
-                padding: 12px 20px; border: none; border-radius: 5px;
-                cursor: pointer; width: 100%; font-size: 16px;
-                transition: background-color 0.2s ease;
+                font-size: 16px; font-weight: 600; cursor: pointer;
+                transition: background-color 0.2s;
             }
-            #subscription-form button:hover {
-                background-color: ${config.buttonHoverColor || '#0056b3'};
+            #submit-button:hover { background-color: ${config.buttonHoverColor || '#2D3748'}; }
+            #thank-you-message { text-align: left; }
+
+            @media (max-width: 600px) {
+                .popup-container { flex-direction: column; max-width: 350px; }
+                .popup-image { width: 100%; height: 150px; }
+                .popup-content { width: 100%; padding: 30px; }
             }
         `;
 
-        // 2. Створюємо HTML-структуру на основі налаштувань
         const popupHTML = `
-            <div class="popup-content">
-                <div id="form-container">
+            <div class="popup-container">
+                <div class="popup-image" style="background-image: url('${config.imageUrl || ''}');"></div>
+                <div class="popup-content">
                     <span class="close-btn">&times;</span>
-                    <h2>${config.popupTitle || 'Підпишіться на новини!'}</h2>
-                    <p>${config.popupText || 'Отримуйте свіжі статті та оновлення першими.'}</p>
-                    <form id="subscription-form">
-                        <input type="email" id="email-input" placeholder="${config.inputPlaceholder || 'Введіть ваш email'}" required>
-                        <button type="submit">${config.buttonText || 'Підписатись'}</button>
-                    </form>
-                </div>
-                <div id="thank-you-message" style="display: none;">
-                    <h2>${config.thankYouTitle || 'Дякуємо за підписку!'}</h2>
-                    <p>${config.thankYouText || 'Ми раді бачити вас серед наших читачів.'}</p>
+                    <div id="form-container">
+                        <h2>${config.popupTitle}</h2>
+                        <p>${config.popupText}</p>
+                        <form id="subscription-form">
+                            <input type="email" id="email-input" placeholder="Email" required>
+                            <button type="submit" id="submit-button">${config.buttonText}</button>
+                        </form>
+                    </div>
+                    <div id="thank-you-message" style="display: none;">
+                        <h2>${config.thankYouTitle}</h2>
+                        <p>${config.thankYouText}</p>
+                    </div>
                 </div>
             </div>
         `;
 
-        // 3. Додаємо стилі та HTML на сторінку
+        // Решта логіки без змін...
         const styleSheet = document.createElement("style");
         styleSheet.innerText = styles;
         document.head.appendChild(styleSheet);
@@ -81,21 +99,19 @@
         popup.className = 'popup-overlay';
         popup.innerHTML = popupHTML;
         document.body.appendChild(popup);
-
-        // 4. Отримуємо доступ до створених елементів
+        
+        // ... (вся логіка з getCookie, setCookie, closePopup, обробниками подій)
         const form = document.getElementById('subscription-form');
         const closeBtn = popup.querySelector('.close-btn');
         const formContainer = document.getElementById('form-container');
         const thankYouMessage = document.getElementById('thank-you-message');
 
-        // 5. Застосовуємо налаштування та логіку
-        const popupDelay = (parseInt(config.popupDelaySeconds, 10) || 15) * 1000;
-        const cookieExpirationDays = parseInt(config.cookieExpirationDays, 10) || 30;
+        const popupDelay = (parseInt(config.popupDelaySeconds, 10) || 10) * 1000;
+        const cookieExpirationDays = parseInt(config.cookieExpirationDays, 10) || 90;
         const reminderCookieDays = parseInt(config.reminderCookieDays, 10) || 7;
         const currentSite = window.location.hostname;
         const cookieName = `subscriptionPopupShown_${currentSite}`;
 
-        // Допоміжні функції для роботи з cookie
         function setCookie(name, value, days) {
             let expires = "";
             if (days) {
@@ -117,23 +133,20 @@
             return null;
         }
 
-        // Функція закриття форми. Встановлює cookie на різний час.
         function closePopup(isSubscribed) {
             popup.classList.remove('visible');
             const duration = isSubscribed ? cookieExpirationDays : reminderCookieDays;
             setCookie(cookieName, 'true', duration);
         }
 
-        // Перевіряємо, чи потрібно показувати форму
         if (!getCookie(cookieName)) {
             setTimeout(() => popup.classList.add('visible'), popupDelay);
         }
         
-        // Обробка успішної відправки форми
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             const email = document.getElementById('email-input').value;
-            fetch(googleScriptURL, {
+            fetch(scriptUrl, {
                 method: 'POST',
                 mode: 'no-cors',
                 headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -142,39 +155,25 @@
             .then(() => {
                 formContainer.style.display = 'none';
                 thankYouMessage.style.display = 'block';
-                // Закриваємо вікно і встановлюємо довгий cookie, бо користувач підписався
                 setTimeout(() => closePopup(true), 3000); 
             })
             .catch(error => console.error('Error submitting form:', error.message));
         });
 
-        // Обробка закриття по кліку на хрестик
         closeBtn.addEventListener('click', function() {
-            // Закриваємо вікно і встановлюємо короткий cookie-нагадування
             closePopup(false); 
         });
     }
 
-    // Головна точка входу: завантажуємо налаштування і запускаємо скрипт
-    document.addEventListener('DOMContentLoaded', function() {
-        fetch(googleScriptURL)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error('Network response was not ok');
-                }
-                return response.json();
-            })
-            .then(config => {
-                const allowedDomains = (config.allowedDomains || "").split(',');
-                const currentSite = window.location.hostname;
-                // Перевіряємо, чи дозволено домен, перед тим як щось робити
-                if (allowedDomains.includes(currentSite)) {
-                    initializePopup(config);
-                } else {
-                    console.warn(`Subscription form is not authorized for domain: ${currentSite}`);
-                }
-            })
-            .catch(error => console.error('Failed to load subscription form config:', error));
-    });
-
+    // Головна точка входу
+    const currentDomain = window.location.hostname;
+    fetch(`${scriptUrl}?domain=${currentDomain}`)
+        .then(response => response.json())
+        .then(config => {
+            if (config.error) {
+                throw new Error(config.error);
+            }
+            initializePopup(config);
+        })
+        .catch(error => console.error('Popup Script Error:', error.message));
 })();
