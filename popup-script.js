@@ -1,6 +1,6 @@
 (function() {
 
-    const googleScriptURL = 'https://script.google.com/macros/s/AKfycbwggUOLXg_-1OWyj2PzoKNxoMO7qleloBDLWyxLi3gLX6nfPdtHTz3A0M9gyjkLgYyA/exec'; // Ваш URL
+    const googleScriptURL = 'https://script.google.com/macros/s/AKfycbwaFx7knHsKATLpNwQVoATYY3Mtq6XCu4mtVgSAP1GXVYhA1AEaqvXr15L5-tAreBLC/exec'; // Ваш URL
 
     // Функція, що буде викликана після завантаження налаштувань
     function initializePopup(config) {
