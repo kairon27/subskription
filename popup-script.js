@@ -9,13 +9,9 @@
     // Отримуємо URL, переданий в ml('account', 'YOUR_SCRIPT_URL')
     const scriptUrl = window.ml.q[0][1]; 
 
-    /**
-     * Головна функція, яка створює та ініціалізує спливаючу форму.
-     * @param {object} config - Об'єкт налаштувань, завантажений з Google Таблиці.
-     */
     function initializePopup(config) {
         
-        // 1. Оновлені стилі для дизайну з фоновим зображенням
+        // 1. Оновлені стилі з медіа-запитом для мобільних пристроїв
         const styles = `
             @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
             .popup-overlay {
@@ -25,16 +21,12 @@
             }
             .popup-overlay.visible { opacity: 1; visibility: visible; }
             .popup-container {
-                /* Застосовуємо колір фону та фонове зображення */
                 background-color: ${config.formBackgroundColor || '#F8F5F0'};
                 background-image: ${config.imageUrl ? `url('${config.imageUrl}')` : 'none'};
-                background-size: cover;
-                background-position: center;
-
+                background-size: cover; background-position: center;
                 border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.25);
                 width: 90%; max-width: 520px;
-                font-family: 'Poppins', sans-serif;
-                position: relative;
+                font-family: 'Poppins', sans-serif; position: relative;
                 transform: scale(0.95); transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
             }
             .popup-overlay.visible .popup-container { transform: scale(1); }
@@ -54,9 +46,9 @@
             }
             #subscription-form { display: flex; }
             #email-input {
-                flex-grow: 1; padding: 14px 18px; border: 1px solid #cbd5e0;
-                border-radius: 6px 0 0 6px; font-size: 16px;
-                box-sizing: border-box;
+                flex-grow: 1; min-width: 50%; /* Додано для кращої гнучкості */
+                padding: 14px 18px; border: 1px solid #cbd5e0;
+                border-radius: 6px 0 0 6px; font-size: 16px; box-sizing: border-box;
             }
             #email-input:focus { outline: none; border-color: #4A5568; }
             #submit-button {
@@ -68,9 +60,26 @@
             }
             #submit-button:hover { background-color: ${config.buttonHoverColor || '#2D3748'}; }
             #thank-you-message { text-align: left; }
+
+            /* --- МОБІЛЬНА АДАПТАЦІЯ --- */
+            @media (max-width: 480px) {
+                .popup-content { padding: 30px; }
+                .popup-content h2 { font-size: 24px; }
+                .popup-content p { font-size: 15px; margin-bottom: 25px; }
+                #subscription-form {
+                    flex-direction: column; /* Ставимо елементи один під одним */
+                }
+                #email-input {
+                    border-radius: 6px; /* Повертаємо радіус з усіх боків */
+                    margin-bottom: 10px; /* Додаємо відступ знизу */
+                }
+                #submit-button {
+                    border-radius: 6px; /* Повертаємо радіус з усіх боків */
+                }
+            }
         `;
 
-        // 2. Оновлена (і спрощена) HTML-структура
+        // 2. HTML-структура (без змін)
         const popupHTML = `
             <div class="popup-container">
                 <span class="close-btn">&times;</span>
@@ -90,33 +99,26 @@
                 </div>
             </div>
         `;
-
+        
         // --- Вся подальша логіка залишається без змін ---
-
-        // 3. Додаємо стилі та HTML на сторінку
         const styleSheet = document.createElement("style");
         styleSheet.innerText = styles;
         document.head.appendChild(styleSheet);
-
         const popup = document.createElement('div');
         popup.id = 'subscription-popup';
         popup.className = 'popup-overlay';
         popup.innerHTML = popupHTML;
         document.body.appendChild(popup);
-        
-        // 4. Отримуємо елементи та застосовуємо налаштування
         const form = document.getElementById('subscription-form');
         const closeBtn = popup.querySelector('.close-btn');
         const formContainer = document.getElementById('form-container');
         const thankYouMessage = document.getElementById('thank-you-message');
-
         const popupDelay = (parseInt(config.popupDelaySeconds, 10) || 10) * 1000;
         const cookieExpirationDays = parseInt(config.cookieExpirationDays, 10) || 90;
         const reminderCookieDays = parseInt(config.reminderCookieDays, 10);
         const currentSite = window.location.hostname;
         const cookieName = `subscriptionPopupShown_${currentSite}`;
 
-        // Допоміжні функції для роботи з cookie (без змін)
         function setCookie(name, value, days) {
             let expires = "";
             if (days) {
@@ -137,7 +139,6 @@
             return null;
         }
 
-        // 5. Логіка закриття та встановлення cookie (без змін)
         function closePopup(isSubscribed) {
             popup.classList.remove('visible');
             if (isSubscribed) {
@@ -149,12 +150,10 @@
             }
         }
 
-        // Перевіряємо, чи потрібно показувати форму (без змін)
         if (!getCookie(cookieName)) {
             setTimeout(() => popup.classList.add('visible'), popupDelay);
         }
         
-        // Обробка відправки форми (без змін)
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             const email = document.getElementById('email-input').value;
@@ -171,13 +170,11 @@
             .catch(error => console.error('Error submitting form:', error.message));
         });
 
-        // Обробка закриття по кліку на хрестик (без змін)
         closeBtn.addEventListener('click', function() {
             closePopup(false); 
         });
     }
 
-    // Головна точка входу (без змін)
     const currentDomain = window.location.hostname;
     fetch(`${scriptUrl}?domain=${currentDomain}`)
         .then(response => {
