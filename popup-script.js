@@ -39,7 +39,7 @@
         #subscription-form button:hover { background-color: #0056b3; }
     `;
 
-    // Вбудовуємо HTML-структуру
+    // ВИПРАВЛЕНО: HTML-структура без екранування символів
     const popupHTML = `
         <div class="popup-content">
             <div id="form-container">
@@ -58,37 +58,30 @@
         </div>
     `;
 
-    // --- Початок логіки скрипта ---
-
     document.addEventListener('DOMContentLoaded', function() {
-        // 1. Додаємо стилі в <head>
         const styleSheet = document.createElement("style");
         styleSheet.type = "text/css";
         styleSheet.innerText = styles;
         document.head.appendChild(styleSheet);
 
-        // 2. Створюємо та додаємо HTML-елемент форми в <body>
         const popup = document.createElement('div');
         popup.id = 'subscription-popup';
         popup.className = 'popup-overlay';
         popup.innerHTML = popupHTML;
         document.body.appendChild(popup);
 
-        // 3. Отримуємо доступ до створених елементів
         const form = document.getElementById('subscription-form');
         const closeBtn = popup.querySelector('.close-btn');
         const formContainer = document.getElementById('form-container');
         const thankYouMessage = document.getElementById('thank-you-message');
 
-        // --- Налаштування ---
         const popupDelay = 15000;
         const cookieExpirationDays = 30;
-        const googleScriptURL = 'https://script.google.com/macros/s/AKfycbyaRXwlI_0xnhCAXIRKM8an5MVlT48rA0nI74MDJkE5xqKBL9MiOtaMg30gmm6VjD_r/exec'; // <-- ВАЖЛИВО: ВСТАВТЕ ВАШ URL
+        const googleScriptURL = 'https://script.google.com/macros/s/AKfycbyaRXwlI_0xnhCAXIRKM8an5MVlT48rA0nI74MDJkE5xqKBL9MiOtaMg30gmm6VjD_r/exec';
 
         const currentSite = window.location.hostname;
         const cookieName = `subscriptionPopupShown_${currentSite}`;
 
-        // Функції для роботи з cookie
         function setCookie(name, value, days) {
             let expires = "";
             if (days) {
@@ -102,6 +95,7 @@
         function getCookie(name) {
             const nameEQ = name + "=";
             const ca = document.cookie.split(';');
+            // ВИПРАВЛЕНО: Умова циклу for
             for (let i = 0; i < ca.length; i++) {
                 let c = ca[i];
                 while (c.charAt(0) == ' ') c = c.substring(1, c.length);
@@ -110,7 +104,6 @@
             return null;
         }
 
-        // Перевірка cookie та показ форми
         if (!getCookie(cookieName)) {
             setTimeout(() => popup.classList.add('visible'), popupDelay);
         }
@@ -119,8 +112,7 @@
             popup.classList.remove('visible');
             setCookie(cookieName, 'true', cookieExpirationDays);
         }
-
-        // Обробка відправки форми
+        
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             const email = document.getElementById('email-input').value;
@@ -133,13 +125,12 @@
             .then(() => {
                 formContainer.style.display = 'none';
                 thankYouMessage.style.display = 'block';
-                setTimeout(closePopup, 3000); // Закриваємо вікно з подякою
+                setTimeout(closePopup, 3000);
             })
             .catch(error => console.error('Error!', error.message));
         });
 
-        // Закриття по кліку на хрестик
         closeBtn.addEventListener('click', closePopup);
     });
 
-})(); // IIFE - Immediately Invoked Function Expression
+})();
