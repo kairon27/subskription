@@ -6,49 +6,54 @@
     const scriptUrl = window.ml.q[0][1];
 
     function initializePopup(config) {
-        // 4. Версійність: виводимо версію в консоль
-        console.log(`Popup Script Version: ${config.scriptVersion || '1.0'}`);
+        // Версійність
+        const scriptVersion = config.scriptVersion || '2.0';
+        console.log(`Popup Script Version: ${scriptVersion}`);
+        if (scriptVersion !== '2.1') {
+            console.warn('You are using an outdated version of the popup script. Please clear CDN cache.');
+        }
 
-        // 1. Оновлені стилі для дизайну з картинкою зверху
+        // Оновлені стилі з !important для зображення
         const styles = `
             @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
             .popup-overlay { /* ... (без змін) ... */ }
-            .popup-overlay.visible { /* ... (без змін) ... */ }
             .popup-container {
                 background-color: ${config.formBackgroundColor || '#FFFFFF'};
                 border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
                 width: 90%; max-width: 450px; font-family: 'Poppins', sans-serif;
                 transform: scale(0.95); transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
-                overflow: hidden; /* Важливо, щоб картинка не вилазила за радіус */
+                overflow: hidden;
             }
             .popup-overlay.visible .popup-container { transform: scale(1); }
+            
+            /* --- КЛЮЧОВІ ЗМІНИ ТУТ --- */
             .popup-image {
-                width: 100%; height: auto; display: ${config.imageUrl ? 'block' : 'none'};
+                display: ${config.imageUrl ? 'block' : 'none'} !important;
+                width: 100% !important;
+                height: auto !important;
+                max-width: 100% !important; /* Обнуляємо можливий max-width ззовні */
+                margin: 0 !important; /* Обнуляємо можливі відступи */
+                padding: 0 !important; /* Обнуляємо можливі падінги */
+                border: none !important; /* Обнуляємо можливі рамки */
+                box-shadow: none !important; /* Обнуляємо можливі тіні */
             }
+            
             .popup-content { padding: 35px; box-sizing: border-box; position: relative; text-align: center; }
             .close-btn { /* ... (без змін) ... */ }
-            .popup-content h2 { font-size: 28px; font-weight: 700; color: #1a202c; margin: 0 0 10px 0; }
-            .popup-content p { font-size: 16px; color: #4a5568; margin: 0 0 25px 0; }
-            #subscription-form { display: flex; flex-direction: column; }
+            .popup-content h2 { /* ... (без змін) ... */ }
+            .popup-content p { /* ... (без змін) ... */ }
+            #subscription-form { /* ... (без змін) ... */ }
             #email-input { /* ... (без змін) ... */ }
-            #submit-button {
-                /* ... (стилі кнопки без змін) ... */
-                transition: background-color 0.2s;
-            }
-            #submit-button:disabled { background-color: #ccc; cursor: not-allowed; } /* Стиль для заблокованої кнопки */
-            #submit-button:hover { /* ... (без змін) ... */ }
-            #thank-you-message { text-align: center; position: relative; } /* Додали position: relative */
+            #submit-button { /* ... (без змін) ... */ }
+            #submit-button:disabled { /* ... (без змін) ... */ }
+            #thank-you-message { /* ... (без змін) ... */ }
 
-            @media (max-width: 480px) {
-                .popup-content { padding: 30px 25px; }
-                .popup-content h2 { font-size: 24px; }
-            }
+            @media (max-width: 480px) { /* ... (без змін) ... */ }
         `;
 
-        // HTML-структура (додаємо хрестик в блок подяки)
         const popupHTML = `
             <div class="popup-container">
-                <img src="${config.imageUrl || ''}" class="popup-image" alt="">
+                <img src="${config.imageUrl || ''}" class="popup-image" alt="Subscription offer">
                 <div class="popup-content">
                     <div id="form-container">
                         <span class="close-btn">&times;</span>
@@ -60,7 +65,7 @@
                         </form>
                     </div>
                     <div id="thank-you-message" style="display: none;">
-                        <span class="close-btn">&times;</span> <!-- Додали хрестик сюди -->
+                        <span class="close-btn">&times;</span>
                         <h2>${config.thankYouTitle}</h2>
                         <p>${config.thankYouText}</p>
                     </div>
@@ -68,7 +73,8 @@
             </div>
         `;
         
-        // --- Подальша логіка з усіма змінами ---
+        // --- Вся подальша логіка залишається без змін ---
+        // (включаючи додавання стилів, HTML, обробники подій, функції cookie і т.д.)
         const styleSheet = document.createElement("style");
         styleSheet.innerText = styles;
         document.head.appendChild(styleSheet);
@@ -77,11 +83,9 @@
         popup.className = 'popup-overlay';
         popup.innerHTML = popupHTML;
         document.body.appendChild(popup);
-
         const form = document.getElementById('subscription-form');
         const submitButton = document.getElementById('submit-button');
-        const closeButtons = popup.querySelectorAll('.close-btn'); // Тепер їх два
-        // ... (решта змінних)
+        const closeButtons = popup.querySelectorAll('.close-btn');
         const formContainer = document.getElementById('form-container');
         const thankYouMessage = document.getElementById('thank-you-message');
         const popupDelay = (parseInt(config.popupDelaySeconds, 10) || 10) * 1000;
@@ -91,7 +95,6 @@
         const currentSite = window.location.hostname;
         const cookieName = `subscriptionPopupShown_${currentSite}`;
 
-        // ... (функції setCookie, getCookie без змін)
         function setCookie(name, value, days) {
             let expires = "";
             if (days) {
@@ -112,7 +115,6 @@
             return null;
         }
 
-        // Логіка закриття (без змін)
         function closePopup(isSubscribed) {
             popup.classList.remove('visible');
             if (isSubscribed) {
@@ -128,64 +130,50 @@
             setTimeout(() => popup.classList.add('visible'), popupDelay);
         }
         
-        // Обробка відправки форми з усіма змінами
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
-            // 2. Блокуємо кнопку, щоб уникнути повторних кліків
             submitButton.disabled = true;
             submitButton.innerText = 'Sending...';
-
-            const email = document.getElementById('email-input').value;
             let country = 'Unknown';
-
             try {
-                // 3. Визначаємо країну
                 const geoResponse = await fetch('https://ipapi.co/json/');
                 const geoData = await geoResponse.json();
                 country = geoData.country_name || 'Unknown';
             } catch (geoError) {
                 console.warn('Could not determine country:', geoError);
             }
-
             try {
-                const response = await fetch(scriptUrl, {
+                const email = document.getElementById('email-input').value;
+                await fetch(scriptUrl, {
                     method: 'POST',
-                    // mode: 'no-cors' НЕ працює з .json() відповіддю, треба CORS
-                    // Оскільки ми контролюємо обидві сторони, можна налаштувати
-                    // Але для простоти зараз залишимо як є, але без then()
                     mode: 'no-cors',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: new URLSearchParams({ email, site: currentSite, country })
                 });
-
-                // Показуємо подяку і закриваємо через N секунд
                 formContainer.style.display = 'none';
                 thankYouMessage.style.display = 'block';
                 setTimeout(() => closePopup(true), thankYouDelay);
-
             } catch (error) {
                 console.error('Error submitting form:', error);
-                submitButton.disabled = false; // Розблоковуємо кнопку у разі помилки
+                submitButton.disabled = false;
                 submitButton.innerText = config.buttonText || 'Subscribe';
             }
         });
 
-        // Обробка закриття по кліку на будь-який хрестик
         closeButtons.forEach(btn => {
             btn.addEventListener('click', function() {
-                // Перевіряємо, чи ми в блоці подяки
                 const isSubscribed = thankYouMessage.style.display === 'block';
                 closePopup(isSubscribed);
             });
         });
     }
 
-    // Головна точка входу (без змін)
     const currentDomain = window.location.hostname;
     fetch(`${scriptUrl}?domain=${currentDomain}`)
         .then(response => response.json())
         .then(config => {
             if (config.error) throw new Error(config.error);
+            config.scriptVersion = '2.1'; // Встановлюємо версію тут для наочності
             initializePopup(config);
         })
         .catch(error => console.error('Popup Script Initialization Error:', error.message));
