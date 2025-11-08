@@ -1,14 +1,21 @@
 (function() {
+    // Перевіряємо, чи ініціалізовано об'єкт-завантажувач
     if (!window.ml || !window.ml.q) {
         console.error('Popup script loader not initialized.');
         return;
     }
-    const scriptUrl = window.ml.q[0][1];
+    // Отримуємо URL скрипта з конфігурації завантажувача
+    const scriptUrl = window.ml.q[0][1]; 
 
+    /**
+     * Головна функція, яка створює та ініціалізує спливаючу форму.
+     * @param {object} config - Об'єкт налаштувань, завантажений з Google Таблиці.
+     */
     function initializePopup(config) {
-        const scriptVersion = '2.5';
+        const scriptVersion = '2.6';
         console.log(`Popup Script Version: ${scriptVersion}`);
 
+        // Динамічні стилі для форми
         const styles = `
             @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
             
@@ -21,22 +28,21 @@
             .popup-overlay.visible { opacity: 1; visibility: visible; }
             
             .popup-container {
-                /* Картинка як фон для всього контейнера */
                 background-color: ${config.formBackgroundColor || '#FFFFFF'};
                 background-image: ${config.imageUrl ? `url('${config.imageUrl}')` : 'none'};
                 background-size: cover;
                 background-position: center;
-
                 border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
-                width: 90%; max-width: 780px; /* Ваша ширина */
+                width: 90%; max-width: 780px;
                 font-family: 'Poppins', sans-serif;
                 transform: scale(0.95); transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
-                position: relative; /* Для позиціонування хрестика */
+                position: relative;
             }
             .popup-overlay.visible .popup-container { transform: scale(1); }
 
             .popup-content {
                 padding: 45px;
+                padding-top: ${config.imageUrl ? '185px' : '45px'}; /* Динамічний відступ для фонової картинки */
                 box-sizing: border-box;
                 text-align: left;
             }
@@ -58,7 +64,7 @@
             /* Адаптація для мобільних */
             @media (max-width: 700px) {
                 .popup-container { max-width: 400px; }
-                .popup-content { padding: 40px 30px; text-align: center; }
+                .popup-content { padding: 40px 30px; padding-top: ${config.imageUrl ? '160px' : '40px'}; text-align: center; }
                 .popup-content h2 { font-size: 26px; }
                 #subscription-form { flex-direction: column; }
                 #email-input { border-radius: 6px; margin-bottom: 10px; }
@@ -66,6 +72,7 @@
             }
         `;
 
+        // HTML-структура форми
         const popupHTML = `
             <div class="popup-container">
                 <div class="popup-content">
@@ -86,7 +93,9 @@
             </div>
         `;
         
-        // --- Вся подальша логіка залишається без змін ---
+        // --- Подальша логіка ---
+        
+        // Додаємо стилі та HTML на сторінку
         const styleSheet = document.createElement("style");
         styleSheet.innerText = styles;
         document.head.appendChild(styleSheet);
@@ -96,11 +105,14 @@
         popup.innerHTML = popupHTML;
         document.body.appendChild(popup);
 
+        // Отримуємо доступ до елементів
         const form = document.getElementById('subscription-form');
         const submitButton = document.getElementById('submit-button');
         const closeButton = popup.querySelector('.close-btn');
         const formContainer = document.getElementById('form-container');
         const thankYouMessage = document.getElementById('thank-you-message');
+        
+        // Застосовуємо налаштування
         const popupDelay = (parseInt(config.popupDelaySeconds, 10) || 10) * 1000;
         const cookieExpirationDays = parseInt(config.cookieExpirationDays, 10) || 90;
         const reminderCookieDays = parseInt(config.reminderCookieDays, 10);
@@ -108,6 +120,7 @@
         const currentSite = window.location.hostname;
         const cookieName = `subscriptionPopupShown_${currentSite}`;
 
+        // Функції для роботи з cookie
         function setCookie(name, value, days) {
             let expires = "";
             if (days) {
@@ -128,6 +141,7 @@
             return null;
         }
 
+        // Логіка закриття форми
         function closePopup(isSubscribed) {
             popup.classList.remove('visible');
             if (isSubscribed) {
@@ -139,10 +153,12 @@
             }
         }
 
+        // Перевірка, чи потрібно показувати форму
         if (!getCookie(cookieName)) {
             setTimeout(() => popup.classList.add('visible'), popupDelay);
         }
         
+        // Обробка відправки форми
         form.addEventListener('submit', async function(e) {
             e.preventDefault();
             submitButton.disabled = true;
@@ -173,17 +189,26 @@
             }
         });
 
+        // Обробка закриття по кліку на хрестик
         closeButton.addEventListener('click', function() {
             const isSubscribed = thankYouMessage.style.display === 'block';
             closePopup(isSubscribed);
         });
     }
 
+    // Головна точка входу скрипта
     const currentDomain = window.location.hostname;
     fetch(`${scriptUrl}?domain=${currentDomain}`)
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Network response was not ok from config URL.`);
+            }
+            return response.json();
+        })
         .then(config => {
-            if (config.error) throw new Error(config.error);
+            if (config.error) {
+                throw new Error(config.error);
+            }
             initializePopup(config);
         })
         .catch(error => console.error('Popup Script Initialization Error:', error.message));
