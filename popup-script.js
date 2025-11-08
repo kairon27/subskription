@@ -7,16 +7,30 @@
 
     function initializePopup(config) {
         // Версійність
-        const scriptVersion = config.scriptVersion || '2.0';
+        const scriptVersion = '2.2';
         console.log(`Popup Script Version: ${scriptVersion}`);
-        if (scriptVersion !== '2.1') {
-            console.warn('You are using an outdated version of the popup script. Please clear CDN cache.');
-        }
 
-        // Оновлені стилі з !important для зображення
         const styles = `
             @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
-            .popup-overlay { /* ... (без змін) ... */ }
+            
+            /* --- ПОВЕРНУЛИ КЛЮЧОВІ СТИЛІ --- */
+            .popup-overlay {
+                position: fixed; /* <- Найголовніший рядок */
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.65);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 2147483647; /* <- Дуже високий z-index, щоб бути поверх усього */
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.4s ease;
+            }
+            
+            .popup-overlay.visible { opacity: 1; visibility: visible; }
             .popup-container {
                 background-color: ${config.formBackgroundColor || '#FFFFFF'};
                 border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.2);
@@ -26,29 +40,28 @@
             }
             .popup-overlay.visible .popup-container { transform: scale(1); }
             
-            /* --- КЛЮЧОВІ ЗМІНИ ТУТ --- */
             .popup-image {
                 display: ${config.imageUrl ? 'block' : 'none'} !important;
-                width: 100% !important;
-                height: auto !important;
-                max-width: 100% !important; /* Обнуляємо можливий max-width ззовні */
-                margin: 0 !important; /* Обнуляємо можливі відступи */
-                padding: 0 !important; /* Обнуляємо можливі падінги */
-                border: none !important; /* Обнуляємо можливі рамки */
-                box-shadow: none !important; /* Обнуляємо можливі тіні */
+                width: 100% !important; height: auto !important; max-width: 100% !important;
+                margin: 0 !important; padding: 0 !important; border: none !important; box-shadow: none !important;
             }
             
             .popup-content { padding: 35px; box-sizing: border-box; position: relative; text-align: center; }
-            .close-btn { /* ... (без змін) ... */ }
-            .popup-content h2 { /* ... (без змін) ... */ }
-            .popup-content p { /* ... (без змін) ... */ }
-            #subscription-form { /* ... (без змін) ... */ }
-            #email-input { /* ... (без змін) ... */ }
-            #submit-button { /* ... (без змін) ... */ }
-            #submit-button:disabled { /* ... (без змін) ... */ }
-            #thank-you-message { /* ... (без змін) ... */ }
+            .close-btn { position: absolute; top: 15px; right: 15px; font-size: 28px; color: #888; cursor: pointer; line-height: 1; font-weight: 300; }
+            .popup-content h2 { font-size: 28px; font-weight: 700; color: #1a202c; margin: 0 0 10px 0; }
+            .popup-content p { font-size: 16px; color: #4a5568; margin: 0 0 25px 0; }
+            #subscription-form { display: flex; flex-direction: column; }
+            #email-input { width: 100%; padding: 14px 18px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px; margin-bottom: 10px; box-sizing: border-box; }
+            #submit-button { width: 100%; padding: 14px 25px; border: none; border-radius: 6px; background-color: ${config.buttonColor || '#4A5568'}; color: ${config.buttonTextColor || '#FFFFFF'}; font-size: 16px; font-weight: 600; cursor: pointer; transition: background-color 0.2s; }
+            #submit-button:disabled { background-color: #ccc; cursor: not-allowed; }
+            #submit-button:hover:not(:disabled) { background-color: ${config.buttonHoverColor || '#2D3748'}; }
+            #thank-you-message { text-align: center; position: relative; }
 
-            @media (max-width: 480px) { /* ... (без змін) ... */ }
+            @media (max-width: 480px) {
+                .popup-content { padding: 30px 25px; }
+                .popup-content h2 { font-size: 24px; }
+                /* На мобільних форма з полем і кнопкою в стовпчик і так виглядає добре, тому специфічні правила для неї можна прибрати */
+            }
         `;
 
         const popupHTML = `
@@ -74,7 +87,6 @@
         `;
         
         // --- Вся подальша логіка залишається без змін ---
-        // (включаючи додавання стилів, HTML, обробники подій, функції cookie і т.д.)
         const styleSheet = document.createElement("style");
         styleSheet.innerText = styles;
         document.head.appendChild(styleSheet);
@@ -83,6 +95,7 @@
         popup.className = 'popup-overlay';
         popup.innerHTML = popupHTML;
         document.body.appendChild(popup);
+
         const form = document.getElementById('subscription-form');
         const submitButton = document.getElementById('submit-button');
         const closeButtons = popup.querySelectorAll('.close-btn');
@@ -173,7 +186,6 @@
         .then(response => response.json())
         .then(config => {
             if (config.error) throw new Error(config.error);
-            config.scriptVersion = '2.1'; // Встановлюємо версію тут для наочності
             initializePopup(config);
         })
         .catch(error => console.error('Popup Script Initialization Error:', error.message));
