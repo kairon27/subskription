@@ -6,14 +6,32 @@
     const scriptUrl = window.ml.q[0][1];
 
     function initializePopup(config) {
-        const scriptVersion = '2.7';
+        const scriptVersion = '2.8';
         console.log(`Popup Script Version: ${scriptVersion}`);
 
         const styles = `
             @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
             
-            .popup-overlay { /* ... (без змін) ... */ }
-            .popup-overlay.visible { /* ... (без змін) ... */ }
+            /* --- ПОВЕРНУТО ПОВНИЙ БЛОК СТИЛІВ ДЛЯ POPUP --- */
+            .popup-overlay {
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background-color: rgba(0, 0, 0, 0.65);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 2147483647;
+                opacity: 0;
+                visibility: hidden;
+                transition: opacity 0.4s ease;
+            }
+            .popup-overlay.visible {
+                opacity: 1;
+                visibility: visible;
+            }
             
             .popup-container {
                 background-color: ${config.formBackgroundColor || '#FFFFFF'};
@@ -24,10 +42,12 @@
                 font-family: 'Poppins', sans-serif;
                 transform: scale(0.95);
                 transition: transform 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
-                overflow: hidden; /* Важливо, щоб картинка мала заокруглені кути зверху */
+                overflow: hidden;
                 position: relative;
             }
-            .popup-overlay.visible .popup-container { transform: scale(1); }
+            .popup-overlay.visible .popup-container {
+                transform: scale(1);
+            }
             
             .popup-image {
                 display: ${config.imageUrl ? 'block' : 'none'};
@@ -46,8 +66,8 @@
                 top: 15px;
                 right: 15px;
                 font-size: 28px;
-                color: ${config.imageUrl ? '#FFFFFF' : '#999'}; /* Білий хрестик на картинці, сірий без неї */
-                text-shadow: ${config.imageUrl ? '0 1px 3px rgba(0,0,0,0.3)' : 'none'}; /* Тінь для кращої видимості */
+                color: ${config.imageUrl ? '#FFFFFF' : '#999'};
+                text-shadow: ${config.imageUrl ? '0 1px 3px rgba(0,0,0,0.3)' : 'none'};
                 z-index: 10;
                 cursor: pointer;
             }
@@ -55,10 +75,10 @@
             .popup-content h2 { font-size: 28px; font-weight: 700; color: #1a202c; margin: 0 0 10px 0; }
             .popup-content p { font-size: 16px; color: #4a5568; margin: 0 0 25px 0; }
             #subscription-form { display: flex; flex-direction: column; }
-            #email-input { /* ... (без змін) ... */ }
-            #submit-button { /* ... (без змін) ... */ }
-            #submit-button:disabled { /* ... (без змін) ... */ }
-            #submit-button:hover:not(:disabled) { /* ... (без змін) ... */ }
+            #email-input { width: 100%; padding: 14px 18px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 16px; margin-bottom: 10px; box-sizing: border-box; }
+            #submit-button { width: 100%; padding: 14px 25px; border: none; border-radius: 6px; background-color: ${config.buttonColor || '#4A5568'}; color: ${config.buttonTextColor || '#FFFFFF'}; font-size: 16px; font-weight: 600; cursor: pointer; transition: background-color 0.2s; }
+            #submit-button:disabled { background-color: #ccc; cursor: not-allowed; }
+            #submit-button:hover:not(:disabled) { background-color: ${config.buttonHoverColor || '#2D3748'}; }
             #thank-you-message { text-align: center; }
 
             @media (max-width: 480px) {
@@ -89,7 +109,6 @@
         `;
         
         // --- Вся подальша логіка залишається без змін ---
-        // (Копіюємо всю логіку з попереднього кроку, вона правильна)
         const styleSheet = document.createElement("style");
         styleSheet.innerText = styles;
         document.head.appendChild(styleSheet);
