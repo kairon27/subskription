@@ -12,7 +12,7 @@
      * @param {object} config - Об'єкт налаштувань, завантажений з Google Таблиці.
      */
     function initializePopup(config) {
-        const scriptVersion = '3.1';
+        const scriptVersion = '3.2';
         console.log(`Popup Script Version: ${scriptVersion}`);
 
         // Динамічні стилі для форми
@@ -89,7 +89,7 @@
                         <h2>${config.popupTitle}</h2>
                         <p>${config.popupText}</p>
                         <form id="subscription-form">
-                            <input type="email" id="email-input" placeholder="Email" required>
+                            <input type="email" id="email-input" name="email" placeholder="Email" autocomplete="email" required>
                             <button type="submit" id="submit-button">${config.buttonText}</button>
                         </form>
                         <div id="recaptcha-container"></div>
