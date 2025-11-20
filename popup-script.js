@@ -12,8 +12,19 @@
      * @param {object} config - Об'єкт налаштувань, завантажений з Google Таблиці.
      */
     function initializePopup(config) {
-        const scriptVersion = '3.2';
+        const scriptVersion = '3.3'; // Оновлено версію
         console.log(`Popup Script Version: ${scriptVersion}`);
+
+        // --- Функція для DataLayer ---
+        function pushToDataLayer(eventName) {
+            window.dataLayer = window.dataLayer || [];
+            window.dataLayer.push({
+                'event': eventName,
+                'popup_id': 'subscription_form_v1',
+                'popup_title': config.popupTitle || 'Subscription'
+            });
+            console.log(`DataLayer Push: ${eventName}`); // Для перевірки в консолі
+        }
 
         // Динамічні стилі для форми
         const styles = `
@@ -51,7 +62,7 @@
             }
 
             .close-btn {
-                position: absolute; top: 5px; right: 5px;
+                position: absolute; top: 15px; right: 15px;
                 font-size: 28px; color: #999; cursor: pointer; line-height: 1; font-weight: 300;
             }
             
@@ -77,7 +88,7 @@
             }
         `;
 
-        // HTML-структура форми
+        // HTML-структура форми (з правильними атрибутами для автозаповнення)
         const popupHTML = `
             <div class="popup-container">
                 <span class="close-btn">&times;</span>
@@ -89,7 +100,14 @@
                         <h2>${config.popupTitle}</h2>
                         <p>${config.popupText}</p>
                         <form id="subscription-form">
-                            <input type="email" id="email-input" name="email" placeholder="Email" autocomplete="email" required>
+                            <input 
+                                type="email" 
+                                id="email-input" 
+                                name="email" 
+                                autocomplete="email" 
+                                placeholder="Email" 
+                                required
+                            >
                             <button type="submit" id="submit-button">${config.buttonText}</button>
                         </form>
                         <div id="recaptcha-container"></div>
@@ -104,7 +122,6 @@
         
         // --- Подальша логіка ---
         
-        // Додаємо стилі та HTML на сторінку
         const styleSheet = document.createElement("style");
         styleSheet.innerText = styles;
         document.head.appendChild(styleSheet);
@@ -114,14 +131,12 @@
         popup.innerHTML = popupHTML;
         document.body.appendChild(popup);
 
-        // Отримуємо доступ до елементів
         const form = document.getElementById('subscription-form');
         const submitButton = document.getElementById('submit-button');
         const closeButton = popup.querySelector('.close-btn');
         const formContainer = document.getElementById('form-container');
         const thankYouMessage = document.getElementById('thank-you-message');
         
-        // Застосовуємо налаштування
         const popupDelay = (parseInt(config.popupDelaySeconds, 10) || 10) * 1000;
         const cookieExpirationDays = parseInt(config.cookieExpirationDays, 10) || 90;
         const reminderCookieDays = parseInt(config.reminderCookieDays, 10);
@@ -129,7 +144,6 @@
         const currentSite = window.location.hostname;
         const cookieName = `subscriptionPopupShown_${currentSite}`;
 
-        // Функції для роботи з cookie
         function setCookie(name, value, days) {
             let expires = "";
             if (days) {
@@ -150,7 +164,6 @@
             return null;
         }
 
-        // Логіка закриття форми
         function closePopup(isSubscribed) {
             popup.classList.remove('visible');
             if (isSubscribed) {
@@ -162,14 +175,21 @@
             }
         }
 
-        // Перевірка, чи потрібно показувати форму
+        // Перевірка та показ форми
         if (!getCookie(cookieName)) {
-            setTimeout(() => popup.classList.add('visible'), popupDelay);
+            setTimeout(() => {
+                popup.classList.add('visible');
+                // 1. DATALAYER: Подія показу форми
+                pushToDataLayer('popup_view');
+            }, popupDelay);
         }
         
-        // Оптимізована обробка відправки форми
         form.addEventListener('submit', function(e) {
             e.preventDefault();
+            
+            // 2. DATALAYER: Подія успішної відправки
+            pushToDataLayer('popup_submit');
+
             submitButton.disabled = true;
             const email = document.getElementById('email-input').value;
 
@@ -177,7 +197,6 @@
             formContainer.style.display = 'none';
             thankYouMessage.style.display = 'block';
 
-            // Встановлюємо таймер на закриття
             setTimeout(() => closePopup(true), thankYouDelay);
 
             // Асинхронно у фоні відправляємо дані
@@ -206,14 +225,12 @@
             })();
         });
 
-        // Обробка закриття по кліку на хрестик
         closeButton.addEventListener('click', function() {
             const isSubscribed = thankYouMessage.style.display === 'block';
             closePopup(isSubscribed);
         });
     }
 
-    // Головна точка входу скрипта
     const currentDomain = window.location.hostname;
     fetch(`${scriptUrl}?domain=${currentDomain}`)
         .then(response => {
