@@ -1,0 +1,17 @@
+name: Purge jsDelivr Cache
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'popup-script.js'
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Purge jsDelivr cache for popup-script.js
+        run: |
+          curl -X POST https://purge.jsdelivr.net/gh/kairon27/subskription@main/popup-script.js
+          echo "✅ Cache purged!"
