@@ -113,7 +113,7 @@
                 
                 <!-- ⬇️ ДОДАЄМО ЦЕЙ БЛОК ⬇️ -->
                 ${config.privacyText ? `
-                    <p style="font-size: 11px; color: #999; margin-top: 12px; line-height: 1.3;">
+                    <p style="font-size: 11px; color: ${config.privacyTextColor || '#666'}; margin-top: 12px; line-height: 1.3; text-align: center;">
                         ${config.privacyText}
                     </p>
                 ` : ''}
