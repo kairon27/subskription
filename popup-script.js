@@ -12,7 +12,7 @@
      * @param {object} config - Об'єкт налаштувань, завантажений з Google Таблиці.
      */
     function initializePopup(config) {
-        const scriptVersion = '3.5'; // Оновлено версію
+        const scriptVersion = '3.6'; // Оновлено версію
         console.log(`Popup Script Version: ${scriptVersion}`);
 
         // --- Функція для DataLayer ---
