@@ -63,7 +63,7 @@
 
             .close-btn {
                 position: absolute; top: 5px; right: 5px;
-                font-size: 28px; color: #999; cursor: pointer; line-height: 1; font-weight: 300;
+                font-size: 28px; color: ${config.closeBtnColor || '#999'}; cursor: pointer; line-height: 1; font-weight: 300;
             }
             
             .popup-body h2 { font-size: 38px; font-weight: 700; color: #1a202c; margin: 0 0 10px 0; line-height: 1;  }
