@@ -12,7 +12,7 @@
      * @param {object} config - Об'єкт налаштувань, завантажений з Google Таблиці.
      */
     function initializePopup(config) {
-        const scriptVersion = '3.7'; // Оновлено версію
+        const scriptVersion = '3.8'; // Оновлено версію
         console.log(`Popup Script Version: ${scriptVersion}`);
 
         // --- Функція для DataLayer ---
@@ -66,8 +66,9 @@
                 font-size: 28px; color: ${config.closeBtnColor || '#999'}; cursor: pointer; line-height: 1; font-weight: 300;
             }
             
-            .popup-body h2 { font-size: 38px; font-weight: 700; color: #1a202c; margin: 0 0 10px 0; line-height: 1;  }
-            .popup-body p { font-size: 16px; color: #4a5568; margin: 0 0 30px 0; }
+            .popup-body h2 { font-size: 38px; font-weight: 700; color: ${config.popupTitleColor || '#1a202c'}; margin: 0 0 10px 0; }
+            .popup-body p { font-size: 16px; color: ${config.popupTextColor || '#4a5568'}; margin: 0 0 30px 0; }
+
             #subscription-form { display: flex; margin-bottom: 20px; }
             #email-input { flex-grow: 1; padding: 16px 20px; border: 1px solid #dcdcdc; border-radius: 8px; font-size: 16px; }
             #submit-button { margin-left: 10px; padding: 16px 35px; border: none; border-radius: 8px; background-color: ${config.buttonColor || '#4A5568'}; color: ${config.buttonTextColor || '#FFFFFF'}; font-size: 16px; font-weight: 600; cursor: pointer; transition: background-color 0.2s; }
