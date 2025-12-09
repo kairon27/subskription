@@ -90,35 +90,45 @@
 
         // HTML-структура форми (з правильними атрибутами для автозаповнення)
         const popupHTML = `
-            <div class="popup-container">
-                <span class="close-btn">&times;</span>
-                <div class="popup-header">
-                    <img src="${config.imageUrl || ''}" class="popup-header-image" alt="">
-                </div>
-                <div class="popup-body">
-                    <div id="form-container">
-                        <h2>${config.popupTitle}</h2>
-                        <p>${config.popupText}</p>
-                        <form id="subscription-form">
-                            <input 
-                                type="email" 
-                                id="email-input" 
-                                name="email" 
-                                autocomplete="email" 
-                                placeholder="Email" 
-                                required
-                            >
-                            <button type="submit" id="submit-button">${config.buttonText}</button>
-                        </form>
-                        <div id="recaptcha-container"></div>
-                    </div>
-                    <div id="thank-you-message" style="display: none;">
-                        <h2>${config.thankYouTitle}</h2>
-                        <p>${config.thankYouText}</p>
-                    </div>
-                </div>
+    <div class="popup-container">
+        <span class="close-btn">&times;</span>
+        <div class="popup-header">
+            <img src="${config.imageUrl || ''}" class="popup-header-image" alt="">
+        </div>
+        <div class="popup-body">
+            <div id="form-container">
+                <h2>${config.popupTitle}</h2>
+                <p>${config.popupText}</p>
+                <form id="subscription-form">
+                    <input 
+                        type="email" 
+                        id="email-input" 
+                        name="email" 
+                        autocomplete="email" 
+                        placeholder="Email" 
+                        required
+                    >
+                    <button type="submit" id="submit-button">${config.buttonText}</button>
+                </form>
+                
+                <!-- ⬇️ ДОДАЄМО ЦЕЙ БЛОК ⬇️ -->
+                ${config.privacyText ? `
+                    <p style="font-size: 11px; color: #999; margin-top: 12px; line-height: 1.3;">
+                        ${config.privacyText}
+                    </p>
+                ` : ''}
+                <!-- ⬆️ КІНЕЦЬ БЛОКУ ⬆️ -->
+                
+                <div id="recaptcha-container"></div>
             </div>
-        `;
+            <div id="thank-you-message" style="display: none;">
+                <h2>${config.thankYouTitle}</h2>
+                <p>${config.thankYouText}</p>
+            </div>
+        </div>
+    </div>
+`;
+
         
         // --- Подальша логіка ---
         
