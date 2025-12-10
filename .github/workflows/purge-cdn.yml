@@ -13,5 +13,5 @@ jobs:
     steps:
       - name: Purge popup-script.js
         run: |
-          curl -X POST https://purge.jsdelivr.net/gh/kairon27/subskription@main/popup-script.js
+          curl -X POST https://purge.jsdelivr.net/gh/kairon27/subskription@refs/heads/main/popup-script.js
           echo "✅ popup-script.js cache purged"
