@@ -12,7 +12,7 @@
      * @param {object} config - Об'єкт налаштувань, завантажений з Google Таблиці.
      */
     function initializePopup(config) {
-        const scriptVersion = '3.10'; // Оновлено версію
+        const scriptVersion = '3.11'; // Оновлено версію
         console.log(`Popup Script Version: ${scriptVersion}`);
 
         // --- Функція для DataLayer ---
@@ -66,7 +66,7 @@
                 font-size: 28px; color: ${config.closeBtnColor || '#999'}; cursor: pointer; line-height: 1; font-weight: 300;
             }
             
-            .popup-body h2 { font-size: 38px; font-weight: 700; color: ${config.popupTitleColor || '#1a202c'}; margin: 0 0 10px 0; }
+            .popup-body h2 { font-size: 38px; font-weight: 700; color: ${config.popupTitleColor || '#1a202c'}; margin: 0 0 10px 0; line-height: 1; }
             .popup-body p { font-size: 16px; color: ${config.popupTextColor || '#4a5568'}; margin: 0 0 30px 0; }
 
             #subscription-form { display: flex; margin-bottom: 20px; }
