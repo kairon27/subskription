@@ -201,6 +201,7 @@
                     font-weight: 700;
                     color: ${config.popupTitleColor || '#1a202c'};
                     margin: 0 0 10px 0;
+                    line-height: 1;
                 }
 
                 .popup-body p {
