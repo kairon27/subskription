@@ -1,19 +1,167 @@
 (function() {
-    // Перевіряємо, чи ініціалізовано об'єкт-завантажувач
-    if (!window.ml || !window.ml.q) {
-        console.error('Popup script loader not initialized.');
-        return;
-    }
-    // Отримуємо URL скрипта з конфігурації завантажувача
-    const scriptUrl = window.ml.q[0][1];
+    'use strict';
 
-    /**
-     * Головна функція, яка створює та ініціалізує спливаючу форму.
-     * @param {object} config - Об'єкт налаштувань, завантажений з Google Таблиці.
-     */
+    // ============================================
+    // КОНФІГУРАЦІЯ SUPABASE
+    // ============================================
+    const SUPABASE_URL = 'https://makcazualfwdlmkiebnw.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ha2NhenVhbGZ3ZGxta2llYm53Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0NDkyOTEsImV4cCI6MjA4MTAyNTI5MX0.zsJL04dO1Kwf7BiXvSHFtnGkja_Ji64lhqDxiGJgdiw'; // Замініть!
+
+    const scriptVersion = '4.2';
+    console.log(`Popup Script Version: ${scriptVersion}`);
+
+    // ============================================
+    // ЗАВАНТАЖЕННЯ КОНФІГУРАЦІЇ
+    // ============================================
+    async function loadConfigFromSupabase() {
+        try {
+            const currentDomain = window.location.hostname;
+            
+            const response = await fetch(
+                `${SUPABASE_URL}/rest/v1/sites?domain=eq.${currentDomain}&enabled=eq.true&select=*`,
+                {
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json'
+                    }
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            
+            if (data && data.length > 0) {
+                const site = data[0];
+                return {
+                    popupTitle: site.popup_title,
+                    popupText: site.popup_text,
+                    popupTitleColor: site.popup_title_color || '#1a202c',
+                    popupTextColor: site.popup_text_color || '#4a5568',
+                    buttonText: site.button_text || 'Subscribe',
+                    buttonColor: site.button_color || '#4A5568',
+                    buttonTextColor: site.button_text_color || '#FFFFFF',
+                    buttonHoverColor: site.button_hover_color || '#2D3748',
+                    closeBtnColor: site.close_btn_color || '#999999',
+                    formBackgroundColor: site.form_background_color || '#F4F1ED',
+                    imageUrl: site.image_url,
+                    thankYouTitle: site.thank_you_title || 'Thank You!',
+                    thankYouText: site.thank_you_text || 'You have successfully subscribed.',
+                    popupDelaySeconds: site.popup_delay_seconds || 10,
+                    cookieExpirationDays: site.cookie_expiration_days || 90,
+                    privacyText: site.privacy_text,
+                    privacyTextColor: site.privacy_text_color || '#999999',
+                    reminderCookieDays: site.reminder_cookie_days || 0,
+                    thankYouDelaySeconds: site.thank_you_delay_seconds || 3
+                };
+            } else {
+                console.warn('No popup configuration found for this domain');
+                return null;
+            }
+        } catch (error) {
+            console.error('Error loading popup config from Supabase:', error);
+            return null;
+        }
+    }
+
+    // ============================================
+    // ОТРИМАННЯ IP ТА КРАЇНИ (ПОДВІЙНИЙ ЗАХИСТ)
+    // ============================================
+    async function getIPAndCountry() {
+        let ipAddress = null;
+        let country = 'Unknown';
+
+        // Спроба 1: ipapi.co (отримуємо IP + Country)
+        try {
+            console.log('Trying ipapi.co...');
+            const response = await fetch('https://ipapi.co/json/', { timeout: 3000 });
+            if (response.ok) {
+                const data = await response.json();
+                ipAddress = data.ip || null;
+                country = data.country_name || 'Unknown';
+                console.log('✅ ipapi.co success:', { ipAddress, country });
+                return { ipAddress, country };
+            }
+        } catch (error) {
+            console.warn('⚠️ ipapi.co failed:', error.message);
+        }
+
+        // Спроба 2: Cloudflare Trace (тільки IP)
+        try {
+            console.log('Trying Cloudflare trace...');
+            const response = await fetch('https://www.cloudflare.com/cdn-cgi/trace');
+            if (response.ok) {
+                const text = await response.text();
+                const ipMatch = text.match(/ip=([\d\.a-f:]+)/i);
+                if (ipMatch) {
+                    ipAddress = ipMatch[1];
+                    console.log('✅ Cloudflare success:', { ipAddress });
+                }
+            }
+        } catch (error) {
+            console.warn('⚠️ Cloudflare failed:', error.message);
+        }
+
+        console.log('Final result:', { ipAddress, country });
+        return { ipAddress, country };
+    }
+
+    // ============================================
+    // ЗБЕРЕЖЕННЯ EMAIL В SUPABASE
+    // ============================================
+    async function saveEmailToSupabase(email, site, country, ipAddress) {
+        try {
+            const response = await fetch(
+                `${SUPABASE_URL}/rest/v1/subscriptions`,
+                {
+                    method: 'POST',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=minimal'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        site: site,
+                        country: country,
+                        user_agent: navigator.userAgent,
+                        ip_address: ipAddress
+                    })
+                }
+            );
+
+            if (response.ok) {
+                console.log('✅ Email saved to Supabase');
+                return true;
+            } else {
+                const errorText = await response.text();
+                console.error('❌ Failed to save email:', errorText);
+                return false;
+            }
+        } catch (error) {
+            console.error('❌ Error saving email to Supabase:', error);
+            return false;
+        }
+    }
+
+    // ============================================
+    // ГОЛОВНА ФУНКЦІЯ ІНІЦІАЛІЗАЦІЇ
+    // ============================================
     function initializePopup(config) {
-        const scriptVersion = '3.1';
-        console.log(`Popup Script Version: ${scriptVersion}`);
+        // --- Функція для DataLayer ---
+        function pushToDataLayer(eventName) {
+            window.dataLayer = window.dataLayer || [];
+            window.dataLayer.push({
+                'event': eventName,
+                'popup_id': 'subscription_form_v1',
+                'popup_title': config.popupTitle || 'Subscription'
+            });
+            console.log(`DataLayer Push: ${eventName}`);
+        }
 
         // Динамічні стилі для форми
         const styles = `
@@ -28,7 +176,7 @@
             .popup-overlay.visible { opacity: 1; visibility: visible; }
             
             .popup-container {
-                background-color: ${config.formBackgroundColor || '#F4F1ED'};
+                background-color: ${config.formBackgroundColor};
                 border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
                 width: 90%; max-width: 780px;
                 font-family: 'Poppins', sans-serif;
@@ -46,22 +194,23 @@
             }
 
             .popup-body {
-                padding: 10px 40px 40px 40px;
+                padding: 10px 40px 10px 40px;
                 text-align: center;
             }
 
             .close-btn {
                 position: absolute; top: 5px; right: 5px;
-                font-size: 28px; color: #999; cursor: pointer; line-height: 1; font-weight: 300;
+                font-size: 28px; color: ${config.closeBtnColor}; cursor: pointer; line-height: 1; font-weight: 300;
             }
             
-            .popup-body h2 { font-size: 38px; font-weight: 700; color: #1a202c; margin: 0 0 10px 0; }
-            .popup-body p { font-size: 16px; color: #4a5568; margin: 0 0 30px 0; }
+            .popup-body h2 { font-size: 38px; font-weight: 700; color: ${config.popupTitleColor}; margin: 0 0 10px 0; line-height: 1; }
+            .popup-body p { font-size: 16px; color: ${config.popupTextColor}; margin: 0 0 30px 0; }
+
             #subscription-form { display: flex; margin-bottom: 20px; }
             #email-input { flex-grow: 1; padding: 16px 20px; border: 1px solid #dcdcdc; border-radius: 8px; font-size: 16px; }
-            #submit-button { margin-left: 10px; padding: 16px 35px; border: none; border-radius: 8px; background-color: ${config.buttonColor || '#4A5568'}; color: ${config.buttonTextColor || '#FFFFFF'}; font-size: 16px; font-weight: 600; cursor: pointer; transition: background-color 0.2s; }
+            #submit-button { margin-left: 10px; padding: 16px 35px; border: none; border-radius: 8px; background-color: ${config.buttonColor}; color: ${config.buttonTextColor}; font-size: 16px; font-weight: 600; cursor: pointer; transition: background-color 0.2s; }
             #submit-button:disabled { background-color: #ccc; cursor: not-allowed; }
-            #submit-button:hover:not(:disabled) { background-color: ${config.buttonHoverColor || '#2D3748'}; }
+            #submit-button:hover:not(:disabled) { background-color: ${config.buttonHoverColor}; }
             
             #recaptcha-container {
                 display: flex; justify-content: center;
@@ -89,9 +238,23 @@
                         <h2>${config.popupTitle}</h2>
                         <p>${config.popupText}</p>
                         <form id="subscription-form">
-                            <input type="email" id="email-input" placeholder="Email" required>
+                            <input 
+                                type="email" 
+                                id="email-input" 
+                                name="email" 
+                                autocomplete="email" 
+                                placeholder="Email" 
+                                required
+                            >
                             <button type="submit" id="submit-button">${config.buttonText}</button>
                         </form>
+                        
+                        ${config.privacyText ? `
+                            <p style="font-size: 11px; color: ${config.privacyTextColor}; margin-top: 12px; line-height: 1.3; text-align: center;">
+                                ${config.privacyText}
+                            </p>
+                        ` : ''}
+                        
                         <div id="recaptcha-container"></div>
                     </div>
                     <div id="thank-you-message" style="display: none;">
@@ -101,35 +264,32 @@
                 </div>
             </div>
         `;
-        
-        // --- Подальша логіка ---
-        
-        // Додаємо стилі та HTML на сторінку
+
+        // Додаємо стилі та форму
         const styleSheet = document.createElement("style");
         styleSheet.innerText = styles;
         document.head.appendChild(styleSheet);
+        
         const popup = document.createElement('div');
         popup.id = 'subscription-popup';
         popup.className = 'popup-overlay';
         popup.innerHTML = popupHTML;
         document.body.appendChild(popup);
 
-        // Отримуємо доступ до елементів
         const form = document.getElementById('subscription-form');
         const submitButton = document.getElementById('submit-button');
         const closeButton = popup.querySelector('.close-btn');
         const formContainer = document.getElementById('form-container');
         const thankYouMessage = document.getElementById('thank-you-message');
         
-        // Застосовуємо налаштування
         const popupDelay = (parseInt(config.popupDelaySeconds, 10) || 10) * 1000;
         const cookieExpirationDays = parseInt(config.cookieExpirationDays, 10) || 90;
-        const reminderCookieDays = parseInt(config.reminderCookieDays, 10);
+        const reminderCookieDays = parseInt(config.reminderCookieDays, 10) || 0;
         const thankYouDelay = (parseInt(config.thankYouDelaySeconds, 10) || 3) * 1000;
         const currentSite = window.location.hostname;
         const cookieName = `subscriptionPopupShown_${currentSite}`;
 
-        // Функції для роботи з cookie
+        // Cookie функції
         function setCookie(name, value, days) {
             let expires = "";
             if (days) {
@@ -139,6 +299,7 @@
             }
             document.cookie = name + "=" + (value || "") + expires + "; path=/";
         }
+
         function getCookie(name) {
             const nameEQ = name + "=";
             const ca = document.cookie.split(';');
@@ -150,7 +311,6 @@
             return null;
         }
 
-        // Логіка закриття форми
         function closePopup(isSubscribed) {
             popup.classList.remove('visible');
             if (isSubscribed) {
@@ -162,71 +322,61 @@
             }
         }
 
-        // Перевірка, чи потрібно показувати форму
+        // Перевірка та показ форми
         if (!getCookie(cookieName)) {
-            setTimeout(() => popup.classList.add('visible'), popupDelay);
+            setTimeout(() => {
+                popup.classList.add('visible');
+                pushToDataLayer('popup_view');
+            }, popupDelay);
         }
         
-        // Оптимізована обробка відправки форми
+        // Обробка відправки форми
         form.addEventListener('submit', function(e) {
             e.preventDefault();
+            
+            pushToDataLayer('popup_submit');
+
             submitButton.disabled = true;
+            submitButton.textContent = 'Sending...';
             const email = document.getElementById('email-input').value;
 
-            // Миттєво показуємо подяку
-            formContainer.style.display = 'none';
-            thankYouMessage.style.display = 'block';
-
-            // Встановлюємо таймер на закриття
-            setTimeout(() => closePopup(true), thankYouDelay);
-
-            // Асинхронно у фоні відправляємо дані
+            // Асинхронно відправляємо дані
             (async () => {
-                let country = 'Unknown';
-                try {
-                    const geoResponse = await fetch('https://ipapi.co/json/');
-                    if (geoResponse.ok) {
-                        const geoData = await geoResponse.json();
-                        country = geoData.country_name || 'Unknown';
-                    }
-                } catch (geoError) {
-                    console.warn('Could not determine country:', geoError);
+                // Отримуємо IP та країну (подвійний захист)
+                const { ipAddress, country } = await getIPAndCountry();
+
+                // Зберігаємо в Supabase
+                const saved = await saveEmailToSupabase(email, currentSite, country, ipAddress);
+                
+                if (saved) {
+                    pushToDataLayer('generate_lead');
                 }
 
-                try {
-                    await fetch(scriptUrl, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: new URLSearchParams({ email, site: currentSite, country })
-                    });
-                } catch (error) {
-                    console.error('Error submitting form data in the background:', error);
-                }
+                // Показуємо подяку
+                formContainer.style.display = 'none';
+                thankYouMessage.style.display = 'block';
+                setTimeout(() => closePopup(true), thankYouDelay);
             })();
         });
 
-        // Обробка закриття по кліку на хрестик
         closeButton.addEventListener('click', function() {
             const isSubscribed = thankYouMessage.style.display === 'block';
             closePopup(isSubscribed);
         });
     }
 
-    // Головна точка входу скрипта
-    const currentDomain = window.location.hostname;
-    fetch(`${scriptUrl}?domain=${currentDomain}`)
-        .then(response => {
-            if (!response.ok) {
-                throw new Error(`Network response was not ok from config URL.`);
-            }
-            return response.json();
-        })
-        .then(config => {
-            if (config.error) {
-                throw new Error(config.error);
-            }
-            initializePopup(config);
-        })
-        .catch(error => console.error('Popup Script Initialization Error:', error.message));
+    // ============================================
+    // ЗАПУСК СКРИПТА
+    // ============================================
+    (async function run() {
+        const config = await loadConfigFromSupabase();
+        
+        if (!config) {
+            console.log('No popup configuration available for this domain');
+            return;
+        }
+        
+        initializePopup(config);
+    })();
+
 })();
