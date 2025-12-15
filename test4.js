@@ -5,9 +5,9 @@
     // КОНФІГУРАЦІЯ SUPABASE
     // ============================================
     const SUPABASE_URL = 'https://makcazualfwdlmkiebnw.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ha2NhenVhbGZ3ZGxta2llYm53Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0NDkyOTEsImV4cCI6MjA4MTAyNTI5MX0.zsJL04dO1Kwf7BiXvSHFtnGkja_Ji64lhqDxiGJgdiw'; // Замініть!
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ha2NhenVhbGZ3ZGxta2llYm53Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0NDkyOTEsImV4cCI6MjA4MTAyNTI5MX0.zsJL04dO1Kwf7BiXvSHFtnGkja_Ji64lhqDxiGJgdiw';
 
-    const scriptVersion = '4.2';
+    const scriptVersion = '4.3';
     console.log(`Popup Script Version: ${scriptVersion}`);
 
     // ============================================
@@ -18,7 +18,7 @@
             const currentDomain = window.location.hostname;
             
             const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/sites?domain=eq.${currentDomain}&enabled=eq.true&select=*`,
+                `${SUPABASE_URL}/rest/v1/sites?domain=eq.${encodeURIComponent(currentDomain)}&enabled=eq.true&select=*`,
                 {
                     headers: {
                         'apikey': SUPABASE_ANON_KEY,
@@ -68,16 +68,15 @@
     }
 
     // ============================================
-    // ОТРИМАННЯ IP ТА КРАЇНИ (ПОДВІЙНИЙ ЗАХИСТ)
+    // ОТРИМАННЯ IP ТА КРАЇНИ (У ФОНІ)
     // ============================================
     async function getIPAndCountry() {
         let ipAddress = null;
         let country = 'Unknown';
 
-        // Спроба 1: ipapi.co (отримуємо IP + Country)
+        // Спроба 1: ipapi.co
         try {
-            console.log('Trying ipapi.co...');
-            const response = await fetch('https://ipapi.co/json/', { timeout: 3000 });
+            const response = await fetch('https://ipapi.co/json/');
             if (response.ok) {
                 const data = await response.json();
                 ipAddress = data.ip || null;
@@ -89,9 +88,8 @@
             console.warn('⚠️ ipapi.co failed:', error.message);
         }
 
-        // Спроба 2: Cloudflare Trace (тільки IP)
+        // Спроба 2: Cloudflare Trace
         try {
-            console.log('Trying Cloudflare trace...');
             const response = await fetch('https://www.cloudflare.com/cdn-cgi/trace');
             if (response.ok) {
                 const text = await response.text();
@@ -105,14 +103,20 @@
             console.warn('⚠️ Cloudflare failed:', error.message);
         }
 
-        console.log('Final result:', { ipAddress, country });
         return { ipAddress, country };
     }
 
     // ============================================
-    // ЗБЕРЕЖЕННЯ EMAIL В SUPABASE
+    // ГЕНЕРАЦІЯ УНІКАЛЬНОГО EVENT ID
     // ============================================
-    async function saveEmailToSupabase(email, site, country, ipAddress) {
+    function generateEventId() {
+        return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+    }
+
+    // ============================================
+    // ШВИДКИЙ INSERT (БЕЗ IP)
+    // ============================================
+    async function createSubscriptionFast(eventId, email, site) {
         try {
             const response = await fetch(
                 `${SUPABASE_URL}/rest/v1/subscriptions`,
@@ -122,14 +126,15 @@
                         'apikey': SUPABASE_ANON_KEY,
                         'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
                         'Content-Type': 'application/json',
-                        'Prefer': 'return=minimal'
+                        'Prefer': 'return=representation'
                     },
                     body: JSON.stringify({
+                        event_id: eventId,
                         email: email,
                         site: site,
-                        country: country,
+                        country: 'Unknown',
                         user_agent: navigator.userAgent,
-                        ip_address: ipAddress
+                        ip_address: null
                     })
                 }
             );
@@ -149,10 +154,45 @@
     }
 
     // ============================================
+    // ФОНОВИЙ UPDATE IP/КРАЇНИ
+    // ============================================
+    async function updateSubscriptionIpInBackground(eventId, ipAddress, country) {
+        if (!eventId || !ipAddress) return false;
+
+        try {
+            const response = await fetch(
+                `${SUPABASE_URL}/rest/v1/subscriptions?event_id=eq.${encodeURIComponent(eventId)}`,
+                {
+                    method: 'PATCH',
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=minimal'
+                    },
+                    body: JSON.stringify({
+                        ip_address: ipAddress,
+                        country: country || 'Unknown'
+                    }),
+                    keepalive: true
+                }
+            );
+
+            if (response.ok) {
+                console.log('✅ IP updated in background');
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.warn('⚠️ Background IP update failed:', error);
+            return false;
+        }
+    }
+
+    // ============================================
     // ГОЛОВНА ФУНКЦІЯ ІНІЦІАЛІЗАЦІЇ
     // ============================================
     function initializePopup(config) {
-        // --- Функція для DataLayer ---
         function pushToDataLayer(eventName) {
             window.dataLayer = window.dataLayer || [];
             window.dataLayer.push({
@@ -163,7 +203,6 @@
             console.log(`DataLayer Push: ${eventName}`);
         }
 
-        // Динамічні стилі для форми
         const styles = `
             @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
             
@@ -212,10 +251,6 @@
             #submit-button:disabled { background-color: #ccc; cursor: not-allowed; }
             #submit-button:hover:not(:disabled) { background-color: ${config.buttonHoverColor}; }
             
-            #recaptcha-container {
-                display: flex; justify-content: center;
-            }
-
             #thank-you-message { text-align: center; }
 
             @media (max-width: 600px) {
@@ -226,7 +261,6 @@
             }
         `;
 
-        // HTML-структура форми
         const popupHTML = `
             <div class="popup-container">
                 <span class="close-btn">&times;</span>
@@ -248,14 +282,11 @@
                             >
                             <button type="submit" id="submit-button">${config.buttonText}</button>
                         </form>
-                        
                         ${config.privacyText ? `
                             <p style="font-size: 11px; color: ${config.privacyTextColor}; margin-top: 12px; line-height: 1.3; text-align: center;">
                                 ${config.privacyText}
                             </p>
                         ` : ''}
-                        
-                        <div id="recaptcha-container"></div>
                     </div>
                     <div id="thank-you-message" style="display: none;">
                         <h2>${config.thankYouTitle}</h2>
@@ -265,7 +296,6 @@
             </div>
         `;
 
-        // Додаємо стилі та форму
         const styleSheet = document.createElement("style");
         styleSheet.innerText = styles;
         document.head.appendChild(styleSheet);
@@ -289,7 +319,6 @@
         const currentSite = window.location.hostname;
         const cookieName = `subscriptionPopupShown_${currentSite}`;
 
-        // Cookie функції
         function setCookie(name, value, days) {
             let expires = "";
             if (days) {
@@ -322,7 +351,6 @@
             }
         }
 
-        // Перевірка та показ форми
         if (!getCookie(cookieName)) {
             setTimeout(() => {
                 popup.classList.add('visible');
@@ -330,33 +358,34 @@
             }, popupDelay);
         }
         
-        // Обробка відправки форми
+        // ============================================
+        // ОБРОБКА SUBMIT (МИТТЄВИЙ UX + ФОНОВА ВІДПРАВКА)
+        // ============================================
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             
             pushToDataLayer('popup_submit');
 
-            submitButton.disabled = true;
-            submitButton.textContent = 'Sending...';
             const email = document.getElementById('email-input').value;
+            const eventId = generateEventId();
 
-            // Асинхронно відправляємо дані
-            (async () => {
-                // Отримуємо IP та країну (подвійний захист)
-                const { ipAddress, country } = await getIPAndCountry();
+            // 1) МИТТЄВО показуємо "дякую" і закриваємо попап
+            submitButton.disabled = true;
+            formContainer.style.display = 'none';
+            thankYouMessage.style.display = 'block';
+            setTimeout(() => closePopup(true), thankYouDelay);
 
-                // Зберігаємо в Supabase
-                const saved = await saveEmailToSupabase(email, currentSite, country, ipAddress);
-                
+            // 2) Швидкий INSERT без очікування IP
+            createSubscriptionFast(eventId, email, currentSite).then((saved) => {
                 if (saved) {
                     pushToDataLayer('generate_lead');
                 }
+            }).catch(() => {});
 
-                // Показуємо подяку
-                formContainer.style.display = 'none';
-                thankYouMessage.style.display = 'block';
-                setTimeout(() => closePopup(true), thankYouDelay);
-            })();
+            // 3) У фоні отримуємо IP і оновлюємо запис
+            getIPAndCountry().then(({ ipAddress, country }) => {
+                updateSubscriptionIpInBackground(eventId, ipAddress, country);
+            }).catch(() => {});
         });
 
         closeButton.addEventListener('click', function() {
