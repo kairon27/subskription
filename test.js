@@ -1,25 +1,29 @@
- (function() {
+(function() {
     'use strict';
 
-    // ============================================
-    // КОНФІГУРАЦІЯ SUPABASE
-    // ============================================
-    // ВАЖЛИВО: Замініть на ваші дані з Supabase (Settings → API)
     const SUPABASE_URL = 'https://makcazualfwdlmkiebnw.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ha2NhenVhbGZ3ZGxta2llYm53Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0NDkyOTEsImV4cCI6MjA4MTAyNTI5MX0.zsJL04dO1Kwf7BiXvSHFtnGkja_Ji64lhqDxiGJgdiw'; // eyJ...
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1ha2NhenVhbGZ3ZGxta2llYm53Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU0NDkyOTEsImV4cCI6MjA4MTAyNTI5MX0.zsJL04dO1Kwf7BiXvSHFtnGkja_Ji64lhqDxiGJgdiw';
 
-    const scriptVersion = '4.0';
-    console.log(`Popup Script Version: ${scriptVersion}`);
+    const scriptVersion = '4.6'; // Версію оновлено
+    console.log(`🚀 Popup Script Version: ${scriptVersion}`);
+
+    // Глобальна змінна для зберігання локації
+    let userLocationCache = {
+        ip: null,
+        country: 'Unknown',
+        loaded: false
+    };
 
     // ============================================
-    // ЗАВАНТАЖЕННЯ КОНФІГУРАЦІЇ З SUPABASE
+    // ЗАВАНТАЖЕННЯ КОНФІГУРАЦІЇ
     // ============================================
     async function loadConfigFromSupabase() {
         try {
             const currentDomain = window.location.hostname;
+            console.log('📡 Loading config for domain:', currentDomain);
             
             const response = await fetch(
-                `${SUPABASE_URL}/rest/v1/sites?domain=eq.${currentDomain}&enabled=eq.true&select=*`,
+                `${SUPABASE_URL}/rest/v1/sites?domain=eq.${encodeURIComponent(currentDomain)}&enabled=eq.true&select=*`,
                 {
                     headers: {
                         'apikey': SUPABASE_ANON_KEY,
@@ -37,7 +41,6 @@
             
             if (data && data.length > 0) {
                 const site = data[0];
-                // Конвертуємо snake_case в camelCase
                 return {
                     popupTitle: site.popup_title,
                     popupText: site.popup_text,
@@ -56,32 +59,145 @@
                     cookieExpirationDays: site.cookie_expiration_days || 90,
                     privacyText: site.privacy_text,
                     privacyTextColor: site.privacy_text_color || '#999999',
-                    // Додаткові поля, якщо є
                     reminderCookieDays: site.reminder_cookie_days || 0,
                     thankYouDelaySeconds: site.thank_you_delay_seconds || 3
                 };
             } else {
-                console.warn('No popup configuration found for this domain');
+                console.warn('⚠️ No popup configuration found for this domain');
                 return null;
             }
         } catch (error) {
-            console.error('Error loading popup config from Supabase:', error);
+            console.error('❌ Error loading popup config:', error);
             return null;
         }
     }
 
     // ============================================
-    // ВІДПРАВКА EMAIL (зберігаємо Google Apps Script)
+    // ФОНОВЕ ОТРИМАННЯ IP ТА КРАЇНИ
     // ============================================
-    // Якщо ви хочете продовжити використовувати Google Apps Script для збору email
-    // Додайте поле google_script_url в таблицю sites або hardcode тут:
-    const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyPgv6uVlAE1C__fFiZhI_4JFLSiEMOyYcMrv0RRUiQvRS4gD9klYTTogsdE45jx4kW/exec';
+    async function prefetchUserLocation() {
+        console.log('🌍 Pre-fetching IP and country...');
+        
+        // Функція для запиту з таймаутом
+        const fetchWithTimeout = async (url, options = {}, timeout = 2000) => {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), timeout);
+            try {
+                const response = await fetch(url, { ...options, signal: controller.signal });
+                clearTimeout(id);
+                return response;
+            } catch (error) {
+                clearTimeout(id);
+                throw error;
+            }
+        };
+
+        try {
+            // Спроба 1: ipwho.is (Дуже надійний, дає JSON з країною)
+            try {
+                const response = await fetchWithTimeout('https://ipwho.is/');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        userLocationCache = {
+                            ip: data.ip,
+                            country: data.country || 'Unknown',
+                            loaded: true
+                        };
+                        console.log('✅ Location detected (ipwho.is):', userLocationCache);
+                        return;
+                    }
+                }
+            } catch (e) { console.warn('ipwho.is failed, trying next...'); }
+
+            // Спроба 2: db-ip.com (Резервний)
+            try {
+                const response = await fetchWithTimeout('https://api.db-ip.com/v2/free/self');
+                if (response.ok) {
+                    const data = await response.json();
+                    userLocationCache = {
+                        ip: data.ipAddress,
+                        country: data.countryName || 'Unknown',
+                        loaded: true
+                    };
+                    console.log('✅ Location detected (db-ip):', userLocationCache);
+                    return;
+                }
+            } catch (e) { console.warn('db-ip failed, trying next...'); }
+
+            // Спроба 3: Cloudflare (Тільки IP, країна буде Unknown)
+            try {
+                const response = await fetchWithTimeout('https://www.cloudflare.com/cdn-cgi/trace');
+                if (response.ok) {
+                    const text = await response.text();
+                    const ipMatch = text.match(/ip=([\d\.a-f:]+)/i);
+                    if (ipMatch) {
+                        userLocationCache = {
+                            ip: ipMatch[1],
+                            country: 'Unknown', // Cloudflare trace не дає країну
+                            loaded: true
+                        };
+                        console.log('✅ IP detected (Cloudflare):', userLocationCache);
+                        return;
+                    }
+                }
+            } catch (e) { console.warn('Cloudflare failed'); }
+
+        } catch (error) {
+            console.error('❌ All location services failed:', error);
+        }
+    }
+
+    // ============================================
+    // ЗБЕРЕЖЕННЯ EMAIL В SUPABASE
+    // ============================================
+    async function saveEmailToSupabase(email, site, country, ipAddress) {
+        // Якщо локація не визначилась, пробуємо ще раз швидко або ставимо дефолт
+        const finalCountry = country || userLocationCache.country || 'Unknown';
+        const finalIP = ipAddress || userLocationCache.ip || null;
+
+        console.log('💾 Saving to Supabase:', { email, site, country: finalCountry, ip: finalIP });
+        
+        try {
+            // keepalive: true дозволяє запиту завершитись навіть якщо вкладка закрилась
+            const response = await fetch(
+                `${SUPABASE_URL}/rest/v1/subscriptions`,
+                {
+                    method: 'POST',
+                    keepalive: true, 
+                    headers: {
+                        'apikey': SUPABASE_ANON_KEY,
+                        'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                        'Content-Type': 'application/json',
+                        'Prefer': 'return=minimal'
+                    },
+                    body: JSON.stringify({
+                        email: email,
+                        site: site,
+                        country: finalCountry,
+                        user_agent: navigator.userAgent,
+                        ip_address: finalIP
+                    })
+                }
+            );
+
+            if (response.ok) {
+                console.log('✅ Email saved successfully');
+                return true;
+            } else {
+                console.error('❌ Failed to save email:', await response.text());
+                return false;
+            }
+        } catch (error) {
+            console.error('❌ Error saving email:', error);
+            return false;
+        }
+    }
 
     // ============================================
     // ГОЛОВНА ФУНКЦІЯ ІНІЦІАЛІЗАЦІЇ
     // ============================================
     function initializePopup(config) {
-        // --- Функція для DataLayer ---
         function pushToDataLayer(eventName) {
             window.dataLayer = window.dataLayer || [];
             window.dataLayer.push({
@@ -89,10 +205,8 @@
                 'popup_id': 'subscription_form_v1',
                 'popup_title': config.popupTitle || 'Subscription'
             });
-            console.log(`DataLayer Push: ${eventName}`);
         }
 
-        // Динамічні стилі для форми
         const styles = `
             @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
             
@@ -141,10 +255,6 @@
             #submit-button:disabled { background-color: #ccc; cursor: not-allowed; }
             #submit-button:hover:not(:disabled) { background-color: ${config.buttonHoverColor}; }
             
-            #recaptcha-container {
-                display: flex; justify-content: center;
-            }
-
             #thank-you-message { text-align: center; }
 
             @media (max-width: 600px) {
@@ -155,7 +265,6 @@
             }
         `;
 
-        // HTML-структура форми
         const popupHTML = `
             <div class="popup-container">
                 <span class="close-btn">&times;</span>
@@ -177,14 +286,11 @@
                             >
                             <button type="submit" id="submit-button">${config.buttonText}</button>
                         </form>
-                        
                         ${config.privacyText ? `
                             <p style="font-size: 11px; color: ${config.privacyTextColor}; margin-top: 12px; line-height: 1.3; text-align: center;">
                                 ${config.privacyText}
                             </p>
                         ` : ''}
-                        
-                        <div id="recaptcha-container"></div>
                     </div>
                     <div id="thank-you-message" style="display: none;">
                         <h2>${config.thankYouTitle}</h2>
@@ -194,7 +300,6 @@
             </div>
         `;
 
-        // Додаємо стилі та форму
         const styleSheet = document.createElement("style");
         styleSheet.innerText = styles;
         document.head.appendChild(styleSheet);
@@ -218,7 +323,6 @@
         const currentSite = window.location.hostname;
         const cookieName = `subscriptionPopupShown_${currentSite}`;
 
-        // Cookie функції
         function setCookie(name, value, days) {
             let expires = "";
             if (days) {
@@ -251,7 +355,6 @@
             }
         }
 
-        // Перевірка та показ форми
         if (!getCookie(cookieName)) {
             setTimeout(() => {
                 popup.classList.add('visible');
@@ -259,45 +362,29 @@
             }, popupDelay);
         }
         
-        // Обробка відправки форми
+        // ============================================
+        // ОБРОБКА SUBMIT
+        // ============================================
         form.addEventListener('submit', function(e) {
             e.preventDefault();
             
+            console.log('📝 Form submitted');
             pushToDataLayer('popup_submit');
 
-            submitButton.disabled = true;
             const email = document.getElementById('email-input').value;
+            submitButton.disabled = true;
+            submitButton.textContent = '...';
 
-            // Миттєво показуємо подяку
+            // Відображаємо "дякую" і закриваємо
             formContainer.style.display = 'none';
             thankYouMessage.style.display = 'block';
 
+            // Зберігаємо дані (використовуємо вже завантажену локацію)
+            saveEmailToSupabase(email, currentSite, userLocationCache.country, userLocationCache.ip);
+            
+            pushToDataLayer('generate_lead');
+
             setTimeout(() => closePopup(true), thankYouDelay);
-
-            // Асинхронно у фоні відправляємо дані
-            (async () => {
-                let country = 'Unknown';
-                try {
-                    const geoResponse = await fetch('https://ipapi.co/json/');
-                    if (geoResponse.ok) {
-                        const geoData = await geoResponse.json();
-                        country = geoData.country_name || 'Unknown';
-                    }
-                } catch (geoError) {
-                    console.warn('Could not determine country:', geoError);
-                }
-
-                try {
-                    await fetch(GOOGLE_SCRIPT_URL, {
-                        method: 'POST',
-                        mode: 'no-cors',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-                        body: new URLSearchParams({ email, site: currentSite, country })
-                    });
-                } catch (error) {
-                    console.error('Error submitting form data in the background:', error);
-                }
-            })();
         });
 
         closeButton.addEventListener('click', function() {
@@ -310,10 +397,12 @@
     // ЗАПУСК СКРИПТА
     // ============================================
     (async function run() {
+        // Запускаємо визначення локації паралельно з завантаженням конфігу
+        prefetchUserLocation();
+
         const config = await loadConfigFromSupabase();
         
         if (!config) {
-            console.log('No popup configuration available for this domain');
             return;
         }
         
